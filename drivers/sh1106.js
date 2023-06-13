@@ -78,17 +78,17 @@ var SH1106 = function (i2c, opts) {
  * ##################################################################################################
  */
 // turn oled on
-SH1106.prototype.turnOnDisplay = function () {
-    this._transfer('cmd', this.DISPLAY_ON);
+SH1106.prototype.turnOnDisplay = async function () {
+    await this._transfer('cmd', this.DISPLAY_ON);
 }
 
 // turn oled off
-SH1106.prototype.turnOffDisplay = function () {
-    this._transfer('cmd', this.DISPLAY_OFF);
+SH1106.prototype.turnOffDisplay = async function () {
+    await this._transfer('cmd', this.DISPLAY_OFF);
 }
 
 // send dim display command to oled
-SH1106.prototype.dimDisplay = function (bool) {
+SH1106.prototype.dimDisplay = async function (bool) {
     var contrast;
 
     if (bool) {
@@ -97,16 +97,16 @@ SH1106.prototype.dimDisplay = function (bool) {
         contrast = 0xFF; // Bright display
     }
 
-    this._transfer('cmd', this.SET_CONTRAST_CTRL_MODE);
-    this._transfer('cmd', contrast);
+    await this._transfer('cmd', this.SET_CONTRAST_CTRL_MODE);
+    await this._transfer('cmd', contrast);
 }
 
 // invert pixels on oled
-SH1106.prototype.invertDisplay = function (bool) {
+SH1106.prototype.invertDisplay = async function (bool) {
     if (bool) {
-        this._transfer('cmd', this.INVERT_DISPLAY); // inverted
+        await this._transfer('cmd', this.INVERT_DISPLAY); // inverted
     } else {
-        this._transfer('cmd', this.NORMAL_DISPLAY); // non inverted
+        await this._transfer('cmd', this.NORMAL_DISPLAY); // non inverted
     }
 }
 
@@ -121,9 +121,11 @@ SH1106.prototype.stopScroll = function () {
 }
 
 // send the entire framebuffer to the oled
-SH1106.prototype.update = function () {
+SH1106.prototype.update = async function () {
     // wait for oled to be ready
-    this._waitUntilReady(function () {
+    
+    let promise = new Promise((resolve, reject) => {
+    this._waitUntilReady(async function () {
         // set the start and endbyte locations for oled display update
         for (var pageIdx = 0; pageIdx <= this.MAX_PAGE_COUNT; pageIdx++) {
             const displaySeq = [
@@ -133,7 +135,7 @@ SH1106.prototype.update = function () {
             ];
             // send intro seq
             for (var i = 0; i < displaySeq.length; i += 1) {
-                this._transfer('cmd', displaySeq[i]);
+                await this._transfer('cmd', displaySeq[i]);
             }
             const start = pageIdx * this.WIDTH;
             const end = start + this.WIDTH;
@@ -147,10 +149,13 @@ SH1106.prototype.update = function () {
                 var pagedBuffer = this.buffer.subarray(start, end)
             }
             for (var i = 0; i < pagedBuffer.length; i++) {
-                this._transfer('data', pagedBuffer[i]);
+                await this._transfer('data', pagedBuffer[i]);
             }
         }
+        
+        resolve()
     }.bind(this));
+    })
 }
 
 /* ##################################################################################################
@@ -461,7 +466,7 @@ SH1106.prototype.drawBitmap = function (pixels, sync) {
  * ##################################################################################################
  */
 
-SH1106.prototype._initialise = function () {
+SH1106.prototype._initialise = async function () {
     // sequence of bytes to initialise with
     var initSeq = [
         this.DISPLAY_OFF,
@@ -482,12 +487,12 @@ SH1106.prototype._initialise = function () {
 
     // write init seq commands
     for (var i = 0; i < initSeq.length; i++) {
-        this._transfer('cmd', initSeq[i]);
+        await this._transfer('cmd', initSeq[i]);
     }
 }
 
 // writes both commands and data buffers to this device
-SH1106.prototype._transfer = function (type, val, fn) {
+SH1106.prototype._transfer = async function (type, val, fn) {
     var control;
     if (type === 'data') {
         control = 0x40;
@@ -508,17 +513,17 @@ SH1106.prototype._transfer = function (type, val, fn) {
     }
 
     // send control and actual val
-    this.wire.i2cWriteSync(this.ADDRESS, 2, bufferForSend);
+    await this.wire.i2cWrite(this.ADDRESS, 2, bufferForSend);
     if (fn) {
         fn();
     }
 }
 
 // read a byte from the oled
-SH1106.prototype._readI2C = function (fn) {
+SH1106.prototype._readI2C = async function (fn) {
     //For version <6.0.0
     if (typeof Buffer.from == "undefined") {
-        this.wire.i2cRead(this.ADDRESS, 0, new Buffer([0]), function (_err, _bytesRead, data) {
+        await this.wire.i2cRead(this.ADDRESS, 0, new Buffer([0]), function (_err, _bytesRead, data) {
             // result is single byte
             if (typeof data === "object") {
                 fn(data[0]);
@@ -531,7 +536,7 @@ SH1106.prototype._readI2C = function (fn) {
     //For version >=6.0.0
     else {
         var data = [0];
-        this.wire.i2cReadSync(this.ADDRESS, 1, Buffer.from(data));
+        await this.wire.i2cRead(this.ADDRESS, 1, Buffer.from(data));
         fn(data[0]);
     }
 }
@@ -638,10 +643,10 @@ SH1106.prototype._updateDirtyBytes = function (dirtyByteArray) {
 
 // sometimes the oled gets a bit busy with lots of bytes.
 // Read the response byte to see if this is the case
-SH1106.prototype._waitUntilReady = function (callback) {
+SH1106.prototype._waitUntilReady = async function (callback) {
     var oled = this;
     function tick(callback) {
-        oled._readI2C(function (byte) {
+        await oled._readI2C(function (byte) {
             // read the busy byte in the response
             busy = byte >> 7 & 1;
             if (!busy) {
