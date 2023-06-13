@@ -83,17 +83,17 @@ var SSD1306 = function (i2c, opts) {
  * ##################################################################################################
  */
 // turn oled on
-SSD1306.prototype.turnOnDisplay = function () {
-  this._transfer('cmd', this.DISPLAY_ON);
+SSD1306.prototype.turnOnDisplay = async function () {
+  await this._transfer('cmd', this.DISPLAY_ON);
 }
 
 // turn oled off
-SSD1306.prototype.turnOffDisplay = function () {
-  this._transfer('cmd', this.DISPLAY_OFF);
+SSD1306.prototype.turnOffDisplay = async function () {
+  await this._transfer('cmd', this.DISPLAY_OFF);
 }
 
 // send dim display command to oled
-SSD1306.prototype.dimDisplay = function (bool) {
+SSD1306.prototype.dimDisplay = async function (bool) {
   var contrast;
 
   if (bool) {
@@ -102,16 +102,16 @@ SSD1306.prototype.dimDisplay = function (bool) {
     contrast = 0xFF; // Bright display
   }
 
-  this._transfer('cmd', this.SET_CONTRAST_CTRL_MODE);
-  this._transfer('cmd', contrast);
+  await this._transfer('cmd', this.SET_CONTRAST_CTRL_MODE);
+  await this._transfer('cmd', contrast);
 }
 
 // invert pixels on oled
-SSD1306.prototype.invertDisplay = function (bool) {
+SSD1306.prototype.invertDisplay = async function (bool) {
   if (bool) {
-    this._transfer('cmd', this.INVERT_DISPLAY); // inverted
+    await this._transfer('cmd', this.INVERT_DISPLAY); // inverted
   } else {
-    this._transfer('cmd', this.NORMAL_DISPLAY); // non inverted
+    await this._transfer('cmd', this.NORMAL_DISPLAY); // non inverted
   }
 }
 
@@ -142,7 +142,7 @@ SSD1306.prototype.startScroll = function (dir, start, stop) {
       break;
   }
 
-  this._waitUntilReady(function () {
+  this._waitUntilReady(async function () {
     cmdSeq.push(
       0x00, start,
       0x00, stop,
@@ -154,20 +154,21 @@ SSD1306.prototype.startScroll = function (dir, start, stop) {
     var i, cmdSeqLen = cmdSeq.length;
 
     for (i = 0; i < cmdSeqLen; i += 1) {
-      this._transfer('cmd', cmdSeq[i]);
+      await this._transfer('cmd', cmdSeq[i]);
     }
   }.bind(this));
 }
 
 // stop scrolling display contents
-SSD1306.prototype.stopScroll = function () {
-  this._transfer('cmd', this.DEACTIVATE_SCROLL); // stahp
+SSD1306.prototype.stopScroll = async function () {
+  await this._transfer('cmd', this.DEACTIVATE_SCROLL); // stahp
 }
 
 // send the entire framebuffer to the oled
-SSD1306.prototype.update = function () {
+SSD1306.prototype.update = async function () {
   // wait for oled to be ready
-  this._waitUntilReady(function () {
+  let promise = new Promise((resolve, reject) => {
+  this._waitUntilReady(async function () {
     // set the start and endbyte locations for oled display update
     var displaySeq = [
       this.COLUMN_ADDR,
@@ -179,13 +180,17 @@ SSD1306.prototype.update = function () {
     var displaySeqLen = displaySeq.length
     // send intro seq
     for (i = 0; i < displaySeqLen; i += 1) {
-      this._transfer('cmd', displaySeq[i]);
+      await this._transfer('cmd', displaySeq[i]);
     }
 
     // write buffer data
     var bufferToSend = Buffer.concat([Buffer.from([0x40]), this.buffer]);
-    this.wire.i2cWriteSync(this.ADDRESS, bufferToSend.length, bufferToSend);
+    await this.wire.i2cWrite(this.ADDRESS, bufferToSend.length, bufferToSend);
+    
+    resolve()
   }.bind(this));
+    
+    return promise
 }
 
 /* ##################################################################################################
@@ -497,7 +502,7 @@ SSD1306.prototype._initialise = function () {
 }
 
 // writes both commands and data buffers to this device
-SSD1306.prototype._transfer = function (type, val, fn) {
+SSD1306.prototype._transfer = async function (type, val, fn) {
   var control;
   if (type === 'data') {
     control = 0x40;
@@ -518,7 +523,7 @@ SSD1306.prototype._transfer = function (type, val, fn) {
   }
 
   // send control and actual val
-  this.wire.i2cWriteSync(this.ADDRESS, 2, bufferForSend);
+  await this.wire.i2cWrite(this.ADDRESS, 2, bufferForSend);
   if (fn) {
     fn();
   }
@@ -550,8 +555,8 @@ SSD1306.prototype._readI2C = function (fn) {
 // Read the response byte to see if this is the case
 SSD1306.prototype._waitUntilReady = function (callback) {
   var oled = this;
-  function tick(callback) {
-    oled._readI2C(function (byte) {
+  async function tick(callback) {
+    await oled._readI2C(function (byte) {
       // read the busy byte in the response
       busy = byte >> 7 & 1;
       if (!busy) {
