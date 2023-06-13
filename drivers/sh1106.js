@@ -645,7 +645,7 @@ SH1106.prototype._updateDirtyBytes = function (dirtyByteArray) {
 // Read the response byte to see if this is the case
 SH1106.prototype._waitUntilReady = async function (callback) {
     var oled = this;
-    function tick(callback) {
+    async function tick(callback) {
         await oled._readI2C(function (byte) {
             // read the busy byte in the response
             busy = byte >> 7 & 1;
