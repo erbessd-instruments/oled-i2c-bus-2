@@ -189,6 +189,7 @@ SSD1306.prototype.update = async function () {
     
     resolve()
   }.bind(this));
+  })
     
     return promise
 }
