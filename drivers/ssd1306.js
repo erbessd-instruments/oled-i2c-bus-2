@@ -75,7 +75,7 @@ var SSD1306 = function (i2c, opts) {
   this.wire = i2c;
   var screenSize = this.WIDTH + 'x' + this.HEIGHT;
   this.screenConfig = config[screenSize];
-  this._initialise();
+  //this._initialise();
 }
 
 /* ##################################################################################################
