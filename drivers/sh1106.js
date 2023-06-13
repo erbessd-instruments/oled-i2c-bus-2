@@ -70,7 +70,7 @@ var SH1106 = function (i2c, opts) {
     this.dirtyBytes = [];
 
     this.wire = i2c;
-    this._initialise();
+    //this._initialise();
 }
 
 /* ##################################################################################################
