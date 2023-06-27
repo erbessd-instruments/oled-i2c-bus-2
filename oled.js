@@ -60,9 +60,9 @@ Oled.prototype.stopScroll = function () {
 }
 
 // send the entire framebuffer to the oled
-Oled.prototype.update = function () {
+Oled.prototype.update = async function () {
     // wait for oled to be ready
-    this.api.update();
+    return this.api.update();
 }
 
 /* ######################################################################
