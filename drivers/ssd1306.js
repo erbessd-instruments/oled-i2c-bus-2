@@ -531,10 +531,10 @@ SSD1306.prototype._transfer = async function (type, val, fn) {
 }
 
 // read a byte from the oled
-SSD1306.prototype._readI2C = function (fn) {
+SSD1306.prototype._readI2C = async function (fn) {
   //For version <6.0.0
   if (typeof Buffer.from == "undefined") {
-    this.wire.i2cRead(this.ADDRESS, 0, new Buffer([0]), function (_err, _bytesRead, data) {
+    await this.wire.i2cRead(this.ADDRESS, 0, new Buffer([0]), function (_err, _bytesRead, data) {
       // result is single byte
       if (typeof data === "object") {
         fn(data[0]);
@@ -547,7 +547,7 @@ SSD1306.prototype._readI2C = function (fn) {
   //For version >=6.0.0
   else {
     var data = [0];
-    this.wire.i2cReadSync(this.ADDRESS, 1, Buffer.from(data));
+    await this.wire.i2cRead(this.ADDRESS, 1, Buffer.from(data));
     fn(data[0]);
   }
 }
